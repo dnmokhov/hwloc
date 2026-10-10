@@ -1434,7 +1434,6 @@ look_cpukinds_intel(struct hwloc_topology *topology,
   int has_lp = 0, has_atom = 0, has_core = 0;
   unsigned max_cache_levels = 0;
   unsigned i;
-  int efficiency;
 
   for(i=0; i<nbprocs; i++) {
     if (infos[i].numcaches > max_cache_levels)
@@ -1465,16 +1464,19 @@ look_cpukinds_intel(struct hwloc_topology *topology,
     }
   }
 
-  /* Lower values indicate less efficient cores. This counter is incremented each time a new
-   * CPU kind is registered, so registration must be done in least-to-most efficient order.
+  /* Register with an unknown forced efficiency and without overwriting existing ones:
+   * - existing kinds (e.g. from the OS) that are equal to or included in one of these sets
+   *   keep their forced efficiency and only get the CoreType info;
+   * - new kinds (when an existing kind is split, e.g. IntelLowPower and IntelAtom cores in
+   *   the same OS kind, or for PUs that were not in any kind yet) get an unknown forced
+   *   efficiency, which makes ranking fall back to CoreType (and frequency) heuristics.
    */
-  efficiency = 0;
   /* register IntelLowPower set if any */
   if (has_lp) {
     struct hwloc_info_s infoattr;
     infoattr.name = (char *) "CoreType";
     infoattr.value = (char *) "IntelLowPower";
-    hwloc_internal_cpukinds_register(topology, lpset, efficiency++, &infoattr, 1, HWLOC_CPUKINDS_REGISTER_FLAG_OVERWRITE_FORCED_EFFICIENCY);
+    hwloc_internal_cpukinds_register(topology, lpset, HWLOC_CPUKIND_EFFICIENCY_UNKNOWN, &infoattr, 1, 0);
     /* the cpuset is given to the callee */
   } else {
     hwloc_bitmap_free(lpset);
@@ -1484,7 +1486,7 @@ look_cpukinds_intel(struct hwloc_topology *topology,
     struct hwloc_info_s infoattr;
     infoattr.name = (char *) "CoreType";
     infoattr.value = (char *) "IntelAtom";
-    hwloc_internal_cpukinds_register(topology, atomset, efficiency++, &infoattr, 1, HWLOC_CPUKINDS_REGISTER_FLAG_OVERWRITE_FORCED_EFFICIENCY);
+    hwloc_internal_cpukinds_register(topology, atomset, HWLOC_CPUKIND_EFFICIENCY_UNKNOWN, &infoattr, 1, 0);
     /* the cpuset is given to the callee */
   } else {
     hwloc_bitmap_free(atomset);
@@ -1494,7 +1496,7 @@ look_cpukinds_intel(struct hwloc_topology *topology,
     struct hwloc_info_s infoattr;
     infoattr.name = (char *) "CoreType";
     infoattr.value = (char *) "IntelCore";
-    hwloc_internal_cpukinds_register(topology, coreset, efficiency++, &infoattr, 1, HWLOC_CPUKINDS_REGISTER_FLAG_OVERWRITE_FORCED_EFFICIENCY);
+    hwloc_internal_cpukinds_register(topology, coreset, HWLOC_CPUKIND_EFFICIENCY_UNKNOWN, &infoattr, 1, 0);
     /* the cpuset is given to the callee */
   } else {
     hwloc_bitmap_free(coreset);
